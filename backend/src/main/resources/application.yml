@@ -1,0 +1,63 @@
+server:
+  port: 8080
+  forward-headers-strategy: native   # respect X-Forwarded-* from nginx
+
+spring:
+  application:
+    name: trashtalk-backend
+  datasource:
+    url: ${TRASHTALK_DB_URL:jdbc:postgresql://postgres:5432/trashtalk}
+    username: ${TRASHTALK_DB_USER:trashtalk}
+    password: ${TRASHTALK_DB_PASSWORD:trashtalk}
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+trashtalk:
+  storage:
+    per-server-bytes: 1073741824   # 1 GiB
+    chunk-size-bytes: 5242880      # 5 MiB
+  jwt:
+    issuer: trashtalk
+    access-token-ttl-minutes: 60
+    refresh-token-ttl-days: 7
+    # Fáze 1: cesty k privátnímu/veřejnému klíči (RS256). Pro dev se vygenerují přes openssl.
+    private-key-path: ${TRASHTALK_JWT_PRIVATE_KEY:/run/secrets/jwt_private.pem}
+    public-key-path: ${TRASHTALK_JWT_PUBLIC_KEY:/run/secrets/jwt_public.pem}
+  argon2:
+    memory-kib: 65536
+    iterations: 3
+    parallelism: 1
+  minio:
+    endpoint: ${TRASHTALK_MINIO_ENDPOINT:http://minio:9000}
+    access-key: ${TRASHTALK_MINIO_ACCESS_KEY:trashtalk}
+    secret-key: ${TRASHTALK_MINIO_SECRET_KEY:trashtalk-secret}
+    bucket: ${TRASHTALK_MINIO_BUCKET:trashtalk-files}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    org.nvias.trashtalk: DEBUG
