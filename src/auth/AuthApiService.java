@@ -1,10 +1,8 @@
 package auth;
 
 import net.ApiClient;
-import net.ApiClient.ApiException;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.UUID;
 
 /** Volá /api/auth/* endpointy backendu. */

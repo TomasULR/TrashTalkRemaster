@@ -65,6 +65,7 @@ public class VideoCapture implements AutoCloseable {
     // ---- capture loop ----
 
     private void captureLoop() {
+        @SuppressWarnings("resource")
         Java2DFrameConverter converter = new Java2DFrameConverter();
         ImageWriter           writer   = ImageIO.getImageWritersByFormatName("jpeg").next();
         JPEGImageWriteParam   param    = new JPEGImageWriteParam(null);

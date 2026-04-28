@@ -41,6 +41,9 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private UserSettings settings;
+
     @PreUpdate
     void onUpdate() {
         updatedAt = Instant.now();

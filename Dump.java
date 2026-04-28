@@ -1,0 +1,1 @@
+public class Dump{ public static void main(String[] a)throws Exception{ for(java.lang.reflect.Method m : Class.forName(a[0]).getMethods()) System.out.println(m.toString()); } }

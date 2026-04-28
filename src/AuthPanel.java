@@ -212,7 +212,7 @@ public class AuthPanel extends JFrame {
         Session.get().set(
                 apiClient,
                 resp.accessToken(), resp.refreshToken(),
-                resp.expiresInSeconds(), resp.userId(),
+                resp.userId(),
                 resp.username(), resp.displayName(), resp.avatarUrl()
         );
         dispose();

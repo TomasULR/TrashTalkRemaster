@@ -12,7 +12,7 @@ import java.util.Map;
 @Component
 public class HandshakeAuthInterceptor implements HandshakeInterceptor {
 
-    static final String ATTR_USER_ID = "userId";
+    public static final String ATTR_USER_ID = "userId";
 
     private final JwtService jwtService;
 

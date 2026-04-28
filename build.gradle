@@ -48,6 +48,10 @@ dependencies {
 
     // Video (Fáze 6) — JavaCV API + OpenCV nativní pro Windows (webcam capture)
     implementation 'org.bytedeco:javacv:1.5.10'
+
+    // WebRTC pro Voice/Video a Screen Streaming (Fáze 7/8)
+    implementation 'dev.onvoid.webrtc:webrtc-java:0.9.0'
+    runtimeOnly    'dev.onvoid.webrtc:webrtc-java:0.9.0:windows-x86_64'
     runtimeOnly    'org.bytedeco:javacpp:1.5.10:windows-x86_64'
     runtimeOnly    'org.bytedeco:opencv:4.8.1-1.5.10:windows-x86_64'
 }

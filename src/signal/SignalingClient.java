@@ -14,7 +14,6 @@ import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 
 /**
  * WebSocket klient pro /ws/signal endpoint.
@@ -36,6 +35,11 @@ public class SignalingClient {
                                    String mediaSessionId, java.util.List<WsEnvelope.ParticipantInfo> participants) {}
         default void onVoiceLeft(String channelId, String userId) {}
         default void onVoiceMuted(String channelId, String userId, boolean muted) {}
+
+        // WebRTC Signaling
+        default void onSdpOffer(String channelId, String senderUserId, String sdpOffer) {}
+        default void onSdpAnswer(String channelId, String senderUserId, String sdpAnswer) {}
+        default void onIceCandidate(String channelId, String senderUserId, String candidate, String sdpMid, int sdpMLineIndex) {}
     }
 
     private final String wsUrl;         // wss://host:25565/ws/signal
@@ -46,7 +50,6 @@ public class SignalingClient {
     private volatile boolean intentionallyClosed = false;
     private final AtomicBoolean reconnecting = new AtomicBoolean(false);
 
-    private final Map<String, Consumer<WsEnvelope>> handlers = new ConcurrentHashMap<>();
     private final CopyOnWriteArrayList<MessageListener> listeners = new CopyOnWriteArrayList<>();
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -125,6 +128,43 @@ public class SignalingClient {
         m.put("type", "voice.mute");
         m.put("channelId", channelId);
         m.put("muted", muted);
+        send(m);
+    }
+
+    public void sendSdpOffer(String channelId, String targetUserId, String sdpOffer) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("type", "webrtc.sdp.offer");
+        m.put("channelId", channelId);
+        m.put("targetUserId", targetUserId);
+        m.put("sdpOffer", sdpOffer);
+        send(m);
+    }
+
+    public void sendSdpAnswer(String channelId, String targetUserId, String sdpAnswer) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("type", "webrtc.sdp.answer");
+        m.put("channelId", channelId);
+        m.put("targetUserId", targetUserId);
+        m.put("sdpAnswer", sdpAnswer);
+        send(m);
+    }
+
+    public void sendOffer(String channelId, String targetUserId, String sdp) {
+        sendSdpOffer(channelId, targetUserId, sdp);
+    }
+
+    public void sendAnswer(String channelId, String targetUserId, String sdp) {
+        sendSdpAnswer(channelId, targetUserId, sdp);
+    }
+
+    public void sendIceCandidate(String channelId, String targetUserId, String candidate, String sdpMid, int sdpMLineIndex) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("type", "webrtc.ice.candidate");
+        m.put("channelId", channelId);
+        m.put("targetUserId", targetUserId);
+        m.put("iceCandidate", candidate);
+        m.put("sdpMid", sdpMid);
+        m.put("sdpMLineIndex", sdpMLineIndex);
         send(m);
     }
 
@@ -212,6 +252,20 @@ public class SignalingClient {
                 String cid = env.channelId, uid = env.userId;
                 boolean m = env.muted != null && env.muted;
                 listeners.forEach(l -> l.onVoiceMuted(cid, uid, m));
+            }
+            case "webrtc.sdp.offer" -> {
+                String cid = env.channelId, uid = env.userId, sdp = env.sdpOffer;
+                listeners.forEach(l -> l.onSdpOffer(cid, uid, sdp));
+            }
+            case "webrtc.sdp.answer" -> {
+                String cid = env.channelId, uid = env.userId, sdp = env.sdpAnswer;
+                listeners.forEach(l -> l.onSdpAnswer(cid, uid, sdp));
+            }
+            case "webrtc.ice.candidate" -> {
+                String cid = env.channelId, uid = env.userId, cand = env.iceCandidate;
+                String smid = env.sdpMid;
+                int smidIndex = env.sdpMLineIndex != null ? env.sdpMLineIndex : 0;
+                listeners.forEach(l -> l.onIceCandidate(cid, uid, cand, smid, smidIndex));
             }
             case "pong" -> {} // ignore
         }

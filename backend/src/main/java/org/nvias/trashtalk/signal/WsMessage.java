@@ -64,11 +64,17 @@ public class WsMessage {
     public Integer code;
     public String reason;
 
-    // voice.join / voice.leave / voice.mute (C→S) a voice.joined / voice.left / voice.muted (S→C)
+    // voice.join / voice.leave / voice.mute (C->S) a voice.joined / voice.left / voice.muted (S->C)
     public String mediaSessionId;
     public Boolean muted;
     public java.util.List<ParticipantInfo> participants;
-
+    // WebRTC Signaling fields
+    public String sdpOffer;
+    public String sdpAnswer;
+    public String iceCandidate;
+    public String sdpMid;
+    public Integer sdpMLineIndex;
+    public String targetUserId; // Pro směrování WebRTC zpráv konkrétnímu příjemci
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ParticipantInfo(String userId, String username, boolean muted) {}
 

@@ -1,8 +1,5 @@
 package ui.dialogs;
 
-import net.ApiClient;
-import server.ServerApiService;
-
 import javax.swing.*;
 import java.awt.*;
 

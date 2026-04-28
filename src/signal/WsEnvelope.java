@@ -23,6 +23,14 @@ public class WsEnvelope {
     public Boolean muted;
     public List<ParticipantInfo> participants;
 
+    // WebRTC fields
+    public String sdpOffer;
+    public String sdpAnswer;
+    public String iceCandidate;
+    public String sdpMid;
+    public Integer sdpMLineIndex;
+    public String targetUserId;
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class MessagePayload {
         public String id;

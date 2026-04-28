@@ -17,7 +17,6 @@ import java.util.function.Consumer;
 public class ChannelListPanel extends JPanel {
 
     private static final Color BG          = new Color(47, 49, 54);
-    private static final Color HEADER_BG   = new Color(47, 49, 54);
     private static final Color SECTION_FG  = new Color(142, 146, 151);
     private static final Color CHANNEL_FG  = new Color(185, 187, 190);
     private static final Color SELECTED_BG = new Color(64, 68, 75);

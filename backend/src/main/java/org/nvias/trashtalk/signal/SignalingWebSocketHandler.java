@@ -79,6 +79,9 @@ public class SignalingWebSocketHandler extends TextWebSocketHandler {
             case "voice.join"  -> doVoiceJoin(session, userId, msg);
             case "voice.leave" -> doVoiceLeave(session, userId, msg);
             case "voice.mute"  -> doVoiceMute(session, userId, msg);
+            case "webrtc.sdp.offer"     -> doSdpOffer(session, userId, msg);
+            case "webrtc.sdp.answer"    -> doSdpAnswer(session, userId, msg);
+            case "webrtc.ice.candidate" -> doIceCandidate(session, userId, msg);
             default            -> sendError(session, 400, "Neznámý typ: " + msg.type);
         }
     }
@@ -221,6 +224,55 @@ public class SignalingWebSocketHandler extends TextWebSocketHandler {
         CopyOnWriteArraySet<WebSocketSession> subs =
                 channelSubs.getOrDefault(channelId, new CopyOnWriteArraySet<>());
         subs.forEach(s -> send(s, broadcast));
+    }
+
+    // ---- WebRTC Handlers ----
+
+    private void doSdpOffer(WebSocketSession session, UUID userId, WsMessage msg) {
+        if (msg.channelId == null || msg.sdpOffer == null || msg.targetUserId == null) return;
+        WsMessage outgoing = new WsMessage();
+        outgoing.type = "webrtc.sdp.offer";
+        outgoing.channelId = msg.channelId;
+        outgoing.userId = userId.toString();
+        outgoing.sdpOffer = msg.sdpOffer;
+        broadcastToUserInChannel(msg.channelId, msg.targetUserId, outgoing);
+    }
+
+    private void doSdpAnswer(WebSocketSession session, UUID userId, WsMessage msg) {
+        if (msg.channelId == null || msg.sdpAnswer == null || msg.targetUserId == null) return;
+        WsMessage outgoing = new WsMessage();
+        outgoing.type = "webrtc.sdp.answer";
+        outgoing.channelId = msg.channelId;
+        outgoing.userId = userId.toString();
+        outgoing.sdpAnswer = msg.sdpAnswer;
+        broadcastToUserInChannel(msg.channelId, msg.targetUserId, outgoing);
+    }
+
+    private void doIceCandidate(WebSocketSession session, UUID userId, WsMessage msg) {
+        if (msg.channelId == null || msg.iceCandidate == null || msg.targetUserId == null) return;
+        WsMessage outgoing = new WsMessage();
+        outgoing.type = "webrtc.ice.candidate";
+        outgoing.channelId = msg.channelId;
+        outgoing.userId = userId.toString();
+        outgoing.iceCandidate = msg.iceCandidate;
+        outgoing.sdpMid = msg.sdpMid;
+        outgoing.sdpMLineIndex = msg.sdpMLineIndex;
+        broadcastToUserInChannel(msg.channelId, msg.targetUserId, outgoing);
+    }
+
+    private void broadcastToUserInChannel(String channelIdStr, String targetUserIdStr, WsMessage msg) {
+        try {
+            UUID channelId = UUID.fromString(channelIdStr);
+            CopyOnWriteArraySet<WebSocketSession> subs = channelSubs.get(channelId);
+            if (subs == null) return;
+
+            subs.forEach(s -> {
+                UUID subUserId = sessionUsers.get(s.getId());
+                if (subUserId != null && subUserId.toString().equals(targetUserIdStr)) {
+                    send(s, msg);
+                }
+            });
+        } catch (Exception ignored) {}
     }
 
     // ---- Broadcast helpers ----

@@ -14,17 +14,15 @@ public final class Session {
     private String username;
     private String displayName;
     private String avatarUrl;
-    private long expiresInSeconds;
 
     private Session() {}
 
     public void set(net.ApiClient client,
                     String accessToken, String refreshToken,
-                    long expiresInSeconds, UUID userId,
+                    UUID userId,
                     String username, String displayName, String avatarUrl) {
         this.accessToken    = accessToken;
         this.refreshToken   = refreshToken;
-        this.expiresInSeconds = expiresInSeconds;
         this.userId         = userId;
         this.username       = username;
         this.displayName    = displayName;

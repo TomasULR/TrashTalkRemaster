@@ -440,7 +440,6 @@ public class ChatPanel extends JPanel {
         if (typingUsers.isEmpty()) {
             typingLabel.setText(" ");
         } else {
-            long now = System.currentTimeMillis();
             List<String> names = typingUsers.values().stream()
                     .map(v -> v.split("\\|", 2)[0])
                     .filter(n -> !n.isBlank())
