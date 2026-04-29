@@ -27,6 +27,7 @@ import dev.onvoid.webrtc.media.video.desktop.DesktopCaptureCallback;
 import dev.onvoid.webrtc.media.video.desktop.DesktopCapturer;
 import dev.onvoid.webrtc.media.video.desktop.DesktopSource;
 import dev.onvoid.webrtc.media.video.desktop.ScreenCapturer;
+import dev.onvoid.webrtc.media.audio.AudioTrackSink;
 import signal.SignalingClient;
 
 import java.awt.image.BufferedImage;
@@ -36,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.IntConsumer;
 
 public class WebRtcManager {
 
@@ -43,6 +45,7 @@ public class WebRtcManager {
     private final String channelId;
     private final String selfUserId;
     private final BiConsumer<String, BufferedImage> frameConsumer;
+    private final IntConsumer audioLevelCallback;
 
     private PeerConnectionFactory factory;
     private AudioTrackSource audioSource;
@@ -52,14 +55,18 @@ public class WebRtcManager {
     private VideoDeviceSource videoSource;
     private VideoTrack localVideoTrack;
 
+    private volatile long lastLevelUpdateMs = 0;
+
     private final Map<String, RTCPeerConnection> peers = new HashMap<>();
 
     public WebRtcManager(SignalingClient signaling, String channelId, String selfUserId,
-                         BiConsumer<String, BufferedImage> frameConsumer) {
+                         BiConsumer<String, BufferedImage> frameConsumer,
+                         IntConsumer audioLevelCallback) {
         this.signaling = signaling;
         this.channelId = channelId;
         this.selfUserId = selfUserId;
         this.frameConsumer = frameConsumer;
+        this.audioLevelCallback = audioLevelCallback;
         init();
     }
 
@@ -68,6 +75,24 @@ public class WebRtcManager {
             factory = new PeerConnectionFactory();
             audioSource = factory.createAudioSource(new AudioOptions());
             localAudioTrack = factory.createAudioTrack("audio_" + selfUserId, audioSource);
+            if (audioLevelCallback != null) {
+                localAudioTrack.addSink((AudioTrackSink) (audioData, bitsPerSample, sampleRate, channels, frames) -> {
+                    long now = System.currentTimeMillis();
+                    if (now - lastLevelUpdateMs < 50) return;
+                    lastLevelUpdateMs = now;
+                    if (bitsPerSample == 16 && audioData.length >= 2) {
+                        long sum = 0;
+                        for (int i = 0; i + 1 < audioData.length; i += 2) {
+                            short s = (short) ((audioData[i + 1] << 8) | (audioData[i] & 0xFF));
+                            sum += (long) s * s;
+                        }
+                        int n = audioData.length / 2;
+                        double rms = Math.sqrt((double) sum / n);
+                        int level = Math.min(100, (int) (rms / 327.68));
+                        audioLevelCallback.accept(level);
+                    }
+                });
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

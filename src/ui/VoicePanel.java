@@ -16,6 +16,7 @@ public class VoicePanel extends JPanel {
         void onCameraToggle(boolean cameraOn);
         void onScreenShareToggle(boolean streamOn);
         void onLeave();
+        default void onSettings() {}
     }
 
     private static final Color BG          = new Color(43, 45, 49);
@@ -32,10 +33,11 @@ public class VoicePanel extends JPanel {
     private final Map<String, ParticipantCard> cards = new LinkedHashMap<>();
     private final JPanel listPanel = new JPanel();
 
-    private final JButton muteBtn  = makeCtrlBtn("🎤", "Ztlumit mikrofon");
-    private final JButton camBtn   = makeCtrlBtn("📷", "Zapnout kameru");
-    private final JButton shareBtn = makeCtrlBtn("🖥", "Sdílet obrazovku");
-    private final JButton leaveBtn = makeCtrlBtn("📵", "Odejít z hovoru");
+    private final JButton muteBtn     = makeCtrlBtn("🎤", "Ztlumit mikrofon");
+    private final JButton camBtn      = makeCtrlBtn("📷", "Zapnout kameru");
+    private final JButton shareBtn    = makeCtrlBtn("🖥", "Sdílet obrazovku");
+    private final JButton settingsBtn = makeCtrlBtn("⚙", "Nastavení zvuku");
+    private final JButton leaveBtn    = makeCtrlBtn("📵", "Odejít z hovoru");
 
     private boolean selfMuted = false;
     private boolean cameraOn  = false;
@@ -152,12 +154,15 @@ public class VoicePanel extends JPanel {
             if (listener != null) listener.onScreenShareToggle(streamOn);
         });
 
+        settingsBtn.addActionListener(e -> { if (listener != null) listener.onSettings(); });
+
         leaveBtn.setBackground(MUTED_COLOR);
         leaveBtn.addActionListener(e -> { if (listener != null) listener.onLeave(); });
 
         controls.add(muteBtn);
         controls.add(camBtn);
         controls.add(shareBtn);
+        controls.add(settingsBtn);
         controls.add(leaveBtn);
 
         add(header,   BorderLayout.NORTH);

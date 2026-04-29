@@ -15,7 +15,6 @@ import ui.VoicePanel;
 import ui.dialogs.CreateChannelDialog;
 import ui.dialogs.CreateServerDialog;
 import ui.dialogs.JoinServerDialog;
-import voice.LocalAudioMonitor;
 import voice.WebRtcManager;
 
 import javax.swing.*;
@@ -42,7 +41,6 @@ public class TrashTalkMainPanel extends JFrame {
 
     // voice + video state
     private volatile WebRtcManager  webRtcManager;
-    private LocalAudioMonitor        audioMonitor;
     private VoicePanel               voicePanel;
     private VideoGridPanel           videoGridPanel;
     private JSplitPane               voiceSplit;
@@ -222,6 +220,10 @@ public class TrashTalkMainPanel extends JFrame {
                 }
             }
             @Override public void onLeave() { doVoiceLeave(); showPlaceholder(); }
+            @Override public void onSettings() {
+                ui.dialogs.SettingsDialog dlg = new ui.dialogs.SettingsDialog(TrashTalkMainPanel.this);
+                dlg.setVisible(true);
+            }
         });
 
         showVoicePanel();
@@ -236,7 +238,6 @@ public class TrashTalkMainPanel extends JFrame {
             activeVoiceChannel = null;
         }
         pendingSignals.clear();
-        if (audioMonitor  != null) { audioMonitor.stop(); audioMonitor = null; }
         if (webRtcManager != null) { webRtcManager.dispose(); webRtcManager = null; }
         localCameraOn  = false;
         videoGridPanel = null;
@@ -483,17 +484,24 @@ public class TrashTalkMainPanel extends JFrame {
 
                     String myId = Session.get().getUserId().toString();
                     if (userId.equals(myId) && mediaSessionId != null && webRtcManager == null) {
+                        final String selfId = myId;
                         webRtcManager = new WebRtcManager(signalingClient, channelId, myId, (uid, frame) -> {
                             SwingUtilities.invokeLater(() -> {
                                 if (videoGridPanel == null) return;
                                 if (!videoGridPanel.hasTile(uid)) {
-                                    String label = uid.equals(myId)
+                                    // Tile should already exist; add as fallback
+                                    String lbl = uid.equals(selfId)
                                             ? Session.get().getDisplayName() + " (Já)"
                                             : uid.substring(0, 8);
-                                    videoGridPanel.addTile(uid, label);
-                                    expandVideoArea();
+                                    videoGridPanel.addTile(uid, lbl);
                                 }
                                 videoGridPanel.updateFrame(uid, frame);
+                            });
+                        }, level -> {
+                            boolean speaking = level > 8;
+                            SwingUtilities.invokeLater(() -> {
+                                if (voicePanel    != null) { voicePanel.setAudioLevel(selfId, level); voicePanel.setSpeaking(selfId, speaking); }
+                                if (videoGridPanel != null) videoGridPanel.setSpeaking(selfId, speaking);
                             });
                         });
 
@@ -501,30 +509,26 @@ public class TrashTalkMainPanel extends JFrame {
                         Runnable r;
                         while ((r = pendingSignals.poll()) != null) r.run();
 
-                        // Create peer connections to everyone already in the channel
-                        for (signal.WsEnvelope.ParticipantInfo p : participants) {
-                            if (!p.userId.equals(myId)) {
-                                webRtcManager.createPeerConnection(p.userId, true);
-                            }
-                        }
-
-                        // Start local mic monitor — feeds speaking indicator and audio level bar
-                        final String selfId = myId;
-                        audioMonitor = new LocalAudioMonitor(level -> {
-                            boolean isSpeaking = level > 8;
-                            SwingUtilities.invokeLater(() -> {
-                                if (voicePanel    != null) {
-                                    voicePanel.setAudioLevel(selfId, level);
-                                    voicePanel.setSpeaking(selfId, isSpeaking);
+                        // Add self tile + tiles for all existing participants, then expand
+                        if (videoGridPanel != null) {
+                            videoGridPanel.addTile(selfId, Session.get().getDisplayName() + " (Já)");
+                            for (signal.WsEnvelope.ParticipantInfo p : participants) {
+                                if (!p.userId.equals(myId)) {
+                                    videoGridPanel.addTile(p.userId, p.username);
+                                    webRtcManager.createPeerConnection(p.userId, true);
                                 }
-                                if (videoGridPanel != null)
-                                    videoGridPanel.setSpeaking(selfId, isSpeaking);
-                            });
-                        });
-                        audioMonitor.start();
-                    } else if (!userId.equals(myId) && webRtcManager != null) {
-                        // Someone new joined — I initiate the connection to them
-                        webRtcManager.createPeerConnection(userId, true);
+                            }
+                            expandVideoArea();
+                        }
+                    } else if (!userId.equals(myId)) {
+                        // Someone else joined — add their tile and establish connection
+                        if (videoGridPanel != null) {
+                            videoGridPanel.addTile(userId, username);
+                            expandVideoArea();
+                        }
+                        if (webRtcManager != null) {
+                            webRtcManager.createPeerConnection(userId, true);
+                        }
                     }
                 });
             }
