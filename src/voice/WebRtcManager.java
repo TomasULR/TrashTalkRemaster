@@ -146,8 +146,8 @@ public class WebRtcManager {
 
     public void stopScreenShare() {
         if (screenCaptureThread != null) { screenCaptureThread.interrupt(); screenCaptureThread = null; }
-        if (screenCapturer != null) { screenCapturer.dispose(); screenCapturer = null; }
-        if (localVideoTrack != null) { localVideoTrack.dispose(); localVideoTrack = null; }
+        if (screenCapturer != null) { try { screenCapturer.dispose(); } catch (Exception ignored) {} screenCapturer = null; }
+        // Do NOT dispose localVideoTrack here — dispose() handles it after stopping videoSource
     }
 
     private static BufferedImage videoFrameToImage(VideoFrame frame) {
@@ -290,13 +290,32 @@ public class WebRtcManager {
     }
 
     public void dispose() {
+        // Close peer connections first — removes all track references
         for (RTCPeerConnection pc : peers.values()) {
-            pc.close();
+            try { pc.close(); } catch (Exception ignored) {}
         }
         peers.clear();
+        // Stop screen capture loop before disposing track/source
         stopScreenShare();
+        // Dispose camera video track before stopping its source
+        if (localVideoTrack != null) {
+            try { localVideoTrack.dispose(); } catch (Exception ignored) {}
+            localVideoTrack = null;
+        }
+        // Stop THEN dispose — VideoDeviceSource must be stopped before native release
+        if (videoSource != null) {
+            try { videoSource.stop(); } catch (Exception ignored) {}
+            try { videoSource.dispose(); } catch (Exception ignored) {}
+            videoSource = null;
+        }
+        if (localAudioTrack != null) {
+            try { localAudioTrack.dispose(); } catch (Exception ignored) {}
+            localAudioTrack = null;
+        }
         audioSource = null;
-        if (videoSource != null) { videoSource.dispose(); videoSource = null; }
-        if (factory != null) { factory.dispose(); factory = null; }
+        if (factory != null) {
+            try { factory.dispose(); } catch (Exception ignored) {}
+            factory = null;
+        }
     }
 }
