@@ -201,7 +201,7 @@ public class TrashTalkMainPanel extends JFrame {
         voicePanel = new VoicePanel(channel.name());
         voicePanel.setListener(new VoicePanel.VoicePanelListener() {
             @Override public void onMuteToggle(boolean muted) {
-                // TODO: webrtcManager.setMuted(muted) if implemented
+                if (webRtcManager != null) webRtcManager.setMuted(muted);
                 signalingClient.sendVoiceMute(channel.id().toString(), muted);
             }
             @Override public void onCameraToggle(boolean cameraOn) {
@@ -211,10 +211,10 @@ public class TrashTalkMainPanel extends JFrame {
                 if (streamOn && webRtcManager != null) {
                     java.awt.Rectangle bounds;
                     if (isWayland()) {
-                        // On Wayland, skip our picker — Robot with null bounds will trigger
-                        // the system PipeWire portal, which handles source selection itself.
+                        System.out.println("[ScreenShare] Wayland detected — skipping picker, using PipeWire portal");
                         bounds = null;
                     } else {
+                        System.out.println("[ScreenShare] non-Wayland — showing ScreenPickerDialog");
                         ui.dialogs.ScreenPickerDialog picker =
                                 new ui.dialogs.ScreenPickerDialog(TrashTalkMainPanel.this);
                         picker.setVisible(true);
@@ -605,9 +605,48 @@ public class TrashTalkMainPanel extends JFrame {
         JOptionPane.showMessageDialog(this, msg, "Chyba", JOptionPane.ERROR_MESSAGE);
     }
 
+    // Cached at first call — xwaylandvideobridge won't start/stop mid-session.
+    private static Boolean cachedWayland = null;
+
     private static boolean isWayland() {
+        if (cachedWayland != null) return cachedWayland;
+
+        String os = System.getProperty("os.name", "").toLowerCase();
+        if (os.contains("win") || os.contains("mac")) {
+            return cachedWayland = false;
+        }
+
         String wd = System.getenv("WAYLAND_DISPLAY");
         String st = System.getenv("XDG_SESSION_TYPE");
-        return (wd != null && !wd.isEmpty()) || "wayland".equalsIgnoreCase(st);
+        boolean waylandSession = (wd != null && !wd.isEmpty()) || "wayland".equalsIgnoreCase(st);
+
+        if (!waylandSession) {
+            System.out.println("[isWayland] X11 session → using Robot/X11 capture");
+            return cachedWayland = false;
+        }
+
+        // If xwaylandvideobridge is running, the X11 root window already contains real
+        // Wayland desktop content. Robot (X11) works fine — no PipeWire portal needed.
+        if (xwaylandBridgeRunning()) {
+            System.out.println("[isWayland] xwaylandvideobridge detected → using Robot/X11 capture");
+            return cachedWayland = false;
+        }
+
+        System.out.println("[isWayland] Wayland session, no X11 bridge → will use PipeWire portal");
+        return cachedWayland = true;
+    }
+
+    private static boolean xwaylandBridgeRunning() {
+        // pgrep -x matches the short comm name (≤15 chars in /proc).
+        // "xwaylandvideobridge" is 20 chars → truncated to "xwaylandvideobr" → -x never matches.
+        // Use -f to match against the full command-line path instead.
+        try {
+            Process p = new ProcessBuilder("pgrep", "-f", "xwaylandvideobridge")
+                    .redirectErrorStream(true)
+                    .start();
+            boolean finished = p.waitFor(1, java.util.concurrent.TimeUnit.SECONDS);
+            if (finished && p.exitValue() == 0) return true;
+        } catch (Exception ignored) {}
+        return false;
     }
 }
