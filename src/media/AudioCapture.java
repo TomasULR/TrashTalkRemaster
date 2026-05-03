@@ -3,6 +3,7 @@ package media;
 import javax.sound.sampled.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 /**
  * Snímá audio z mikrofonu ve 20ms rámcích (960 vzorků při 48 kHz).
@@ -27,6 +28,39 @@ public class AudioCapture {
 
     public AudioCapture(Consumer<short[]> onFrame) {
         this.onFrame = onFrame;
+    }
+
+    public static AudioCapture startPreview(String mixerName, IntConsumer levelCallback) throws LineUnavailableException {
+        AudioCapture capture = new AudioCapture(pcm -> {
+            long sum = 0;
+            for (short s : pcm) sum += (long) s * s;
+            int level = Math.min(100, (int) (Math.sqrt((double) sum / pcm.length) * 100 / 32768));
+            levelCallback.accept(level);
+        });
+        capture.startWithMixer(mixerName);
+        return capture;
+    }
+
+    public void startWithMixer(String mixerName) throws LineUnavailableException {
+        DataLine.Info info = new DataLine.Info(TargetDataLine.class, FORMAT);
+        if (mixerName != null && !mixerName.equals("Výchozí systémové zařízení")) {
+            for (Mixer.Info mi : AudioSystem.getMixerInfo()) {
+                if (mi.getName().equals(mixerName)) {
+                    Mixer mixer = AudioSystem.getMixer(mi);
+                    if (mixer.isLineSupported(info)) {
+                        line = (TargetDataLine) mixer.getLine(info);
+                        line.open(FORMAT, BYTES_PER_FRAME * 4);
+                        line.start();
+                        running.set(true);
+                        captureThread = new Thread(this::captureLoop, "audio-capture");
+                        captureThread.setDaemon(true);
+                        captureThread.start();
+                        return;
+                    }
+                }
+            }
+        }
+        start();
     }
 
     public void start() throws LineUnavailableException {

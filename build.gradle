@@ -11,7 +11,6 @@ java {
     targetCompatibility = JavaVersion.VERSION_20
 }
 
-// Existující projekt má zdrojáky přímo v src/, nikoliv v src/main/java/
 sourceSets {
     main {
         java { srcDirs = ['src'] }
@@ -28,32 +27,39 @@ repositories {
 }
 
 dependencies {
-    // HTTP client
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
-
-    // JSON
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.2'
-
-    // WebSocket (Java-WebSocket)
     implementation 'org.java-websocket:Java-WebSocket:1.5.7'
-
-    // Opus audio (Fáze 5 — voice) — bundluje nativní libopus pro Win/Linux/Mac
     implementation 'club.minnced:opus-java:1.1.1'
-    // JNA je declared runtime-only v opus-java-api, musíme ho přidat explicitně pro kompilaci
     implementation 'net.java.dev.jna:jna:4.4.0'
-
-    // Moderní Swing theme
     implementation 'com.formdev:flatlaf:3.5.1'
-
-    // Video (Fáze 6) — JavaCV API + OpenCV nativní pro Windows (webcam capture)
     implementation 'org.bytedeco:javacv:1.5.10'
-
-    // WebRTC pro Voice/Video a Screen Streaming (Fáze 7/8)
     implementation 'dev.onvoid.webrtc:webrtc-java:0.9.0'
-    runtimeOnly    'dev.onvoid.webrtc:webrtc-java:0.9.0:windows-x86_64'
-    runtimeOnly    'org.bytedeco:javacpp:1.5.10:windows-x86_64'
-    runtimeOnly    'org.bytedeco:opencv:4.8.1-1.5.10:windows-x86_64'
+
+    // Nativní classifier JARy — staženy přes runtimeOnly aby byly v Gradle cache
+    runtimeOnly 'dev.onvoid.webrtc:webrtc-java:0.9.0:windows-x86_64'
+    runtimeOnly 'dev.onvoid.webrtc:webrtc-java:0.9.0:linux-x86_64'
+    runtimeOnly 'org.bytedeco:javacpp:1.5.10:windows-x86_64'
+    runtimeOnly 'org.bytedeco:javacpp:1.5.10:linux-x86_64'
+    runtimeOnly 'org.bytedeco:opencv:4.8.1-1.5.10:windows-x86_64'
+    runtimeOnly 'org.bytedeco:opencv:4.8.1-1.5.10:linux-x86_64'
+}
+
+// Nativní classifier JARy — přidány přímo z Gradle cache jako fileTree
+// (runtimeOnly s classifier notací je Gradle nepřidá do classpath automaticky)
+def gradleCache = System.getProperty('user.home') + '/.gradle/caches/modules-2/files-2.1'
+def nativeJars = fileTree(gradleCache) {
+    include '**/webrtc-java-*-linux-x86_64.jar'
+    include '**/webrtc-java-*-windows-x86_64.jar'
+    include '**/javacpp-*-linux-x86_64.jar'
+    include '**/javacpp-*-windows-x86_64.jar'
+    include '**/opencv-*-linux-x86_64.jar'
+    include '**/opencv-*-windows-x86_64.jar'
+}
+
+dependencies {
+    runtimeOnly nativeJars
 }
 
 application {

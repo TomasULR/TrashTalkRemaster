@@ -33,6 +33,8 @@ public class VoicePanel extends JPanel {
     private final Map<String, ParticipantCard> cards = new LinkedHashMap<>();
     private final JPanel listPanel = new JPanel();
 
+    private JLabel rtcStatusLabel;
+
     private final JButton muteBtn     = makeCtrlBtn("🎤", "Ztlumit mikrofon");
     private final JButton camBtn      = makeCtrlBtn("📷", "Zapnout kameru");
     private final JButton shareBtn    = makeCtrlBtn("🖥", "Sdílet obrazovku");
@@ -106,6 +108,21 @@ public class VoicePanel extends JPanel {
         muteBtn.setBackground(muted ? MUTED_COLOR : new Color(88, 101, 242));
     }
 
+    public void resetScreenShareButton() {
+        streamOn = false;
+        shareBtn.setBackground(new Color(66, 70, 77));
+    }
+
+    public void setRtcStatus(voice.WebRtcManager.RtcStatus status) {
+        if (rtcStatusLabel == null) return;
+        switch (status) {
+            case IDLE       -> { rtcStatusLabel.setText("● Nečinný");      rtcStatusLabel.setForeground(Color.GRAY); }
+            case CONNECTING -> { rtcStatusLabel.setText("● Připojování…"); rtcStatusLabel.setForeground(new Color(250, 166, 26)); }
+            case CONNECTED  -> { rtcStatusLabel.setText("● Připojeno");    rtcStatusLabel.setForeground(new Color(67, 181, 129)); }
+            case FAILED     -> { rtcStatusLabel.setText("● Chyba");        rtcStatusLabel.setForeground(new Color(237, 66, 69)); }
+        }
+    }
+
     // ---- build UI ----
 
     private void buildUi() {
@@ -119,6 +136,13 @@ public class VoicePanel extends JPanel {
         chanLabel.setForeground(TEXT_FG);
         chanLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
         header.add(chanLabel, BorderLayout.WEST);
+
+        rtcStatusLabel = new JLabel("● Nečinný");
+        rtcStatusLabel.setForeground(Color.GRAY);
+        rtcStatusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        rtcStatusLabel.setBorder(new EmptyBorder(0, 0, 0, 2));
+        rtcStatusLabel.setToolTipText("Stav WebRTC spojení");
+        header.add(rtcStatusLabel, BorderLayout.EAST);
 
         listPanel.setLayout(new BoxLayout(listPanel, BoxLayout.Y_AXIS));
         listPanel.setBackground(BG);

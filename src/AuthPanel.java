@@ -9,8 +9,12 @@ import java.util.concurrent.ExecutionException;
 
 public class AuthPanel extends JFrame {
 
-    private final ApiClient apiClient;
-    private final AuthApiService authService;
+    private final boolean trustAllCerts;
+    private ApiClient apiClient;
+    private AuthApiService authService;
+
+    // Server URL field
+    private JTextField serverUrlField;
 
     // Login fields
     private JTextField loginUsernameField;
@@ -26,16 +30,25 @@ public class AuthPanel extends JFrame {
     private JButton registerButton;
     private JLabel regStatusLabel;
 
-    public AuthPanel(ApiClient apiClient) {
-        this.apiClient = apiClient;
-        this.authService = new AuthApiService(apiClient);
+    public AuthPanel(String defaultServerUrl, boolean trustAllCerts) {
+        this.trustAllCerts = trustAllCerts;
+        this.apiClient     = new ApiClient(defaultServerUrl, trustAllCerts);
+        this.authService   = new AuthApiService(apiClient);
         buildUi();
+    }
+
+    private void refreshClient() {
+        String url = serverUrlField.getText().trim();
+        if (!url.equals(apiClient.getBaseUrl())) {
+            apiClient   = new ApiClient(url, trustAllCerts);
+            authService = new AuthApiService(apiClient);
+        }
     }
 
     private void buildUi() {
         setTitle("TrashTalk — Přihlášení");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(420, 320);
+        setSize(420, 360);
         setResizable(false);
         setLocationRelativeTo(null);
 
@@ -43,12 +56,25 @@ public class AuthPanel extends JFrame {
         title.setFont(new Font("Arial", Font.BOLD, 22));
         title.setBorder(BorderFactory.createEmptyBorder(14, 0, 6, 0));
 
+        // Server URL row
+        JPanel serverRow = new JPanel(new BorderLayout(6, 0));
+        serverRow.setBorder(BorderFactory.createEmptyBorder(0, 20, 8, 20));
+        JLabel serverLabel = new JLabel("Server:");
+        serverRow.add(serverLabel, BorderLayout.WEST);
+        serverUrlField = new JTextField(apiClient.getBaseUrl());
+        serverUrlField.setToolTipText("Adresa serveru TrashTalk — změň pro připojení k jinému serveru");
+        serverRow.add(serverUrlField, BorderLayout.CENTER);
+
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(title, BorderLayout.NORTH);
+        topPanel.add(serverRow, BorderLayout.SOUTH);
+
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("Přihlášení", buildLoginTab());
         tabs.addTab("Registrace", buildRegisterTab());
 
         getContentPane().setLayout(new BorderLayout());
-        getContentPane().add(title, BorderLayout.NORTH);
+        getContentPane().add(topPanel, BorderLayout.NORTH);
         getContentPane().add(tabs, BorderLayout.CENTER);
     }
 
@@ -81,6 +107,7 @@ public class AuthPanel extends JFrame {
     }
 
     private void doLogin() {
+        refreshClient();
         String username = loginUsernameField.getText().trim();
         String password = new String(loginPasswordField.getPassword());
 
@@ -157,6 +184,7 @@ public class AuthPanel extends JFrame {
     }
 
     private void doRegister() {
+        refreshClient();
         String username = regUsernameField.getText().trim();
         String email    = regEmailField.getText().trim();
         String password = new String(regPasswordField.getPassword());

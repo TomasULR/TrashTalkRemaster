@@ -22,6 +22,14 @@ public class NativeLoader {
     public static void loadLibrary(String name) throws Exception {
         if (LOADED_LIB_SET.contains(name)) return;
 
+        // webrtc-java.so references XFixes/X11 symbols that are not in its NEEDED list.
+        // Pre-load them so the dynamic linker can resolve these symbols globally.
+        if ("webrtc-java".equals(name) && !System.getProperty("os.name", "").toLowerCase().contains("win")) {
+            for (String dep : new String[]{"Xfixes", "Xext", "Xdamage", "Xrandr", "Xcomposite"}) {
+                try { System.loadLibrary(dep); } catch (UnsatisfiedLinkError ignored) {}
+            }
+        }
+
         String libFile = System.mapLibraryName(name); // "webrtc-java.dll" on Windows
         String base    = stripExt(libFile);
         String ext     = fileExt(libFile);

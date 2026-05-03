@@ -209,7 +209,42 @@ public class TrashTalkMainPanel extends JFrame {
             }
             @Override public void onScreenShareToggle(boolean streamOn) {
                 if (streamOn && webRtcManager != null) {
-                    webRtcManager.startScreenShare();
+                    java.awt.Rectangle bounds;
+                    if (isWayland()) {
+                        // On Wayland, skip our picker — Robot with null bounds will trigger
+                        // the system PipeWire portal, which handles source selection itself.
+                        bounds = null;
+                    } else {
+                        ui.dialogs.ScreenPickerDialog picker =
+                                new ui.dialogs.ScreenPickerDialog(TrashTalkMainPanel.this);
+                        picker.setVisible(true);
+                        bounds = picker.getSelectedBounds();
+                        if (bounds == null) {
+                            voicePanel.resetScreenShareButton();
+                            return;
+                        }
+                    }
+                    try {
+                        webRtcManager.startScreenShare(bounds);
+                        // Add self tile in grid for the preview
+                        String selfId = Session.get().getUserId().toString();
+                        if (videoGridPanel != null && !videoGridPanel.hasTile(selfId)) {
+                            videoGridPanel.addTile(selfId, Session.get().getDisplayName() + " (Já)");
+                            expandVideoArea();
+                        }
+                    } catch (Exception ex) {
+                        String msg = ex.getMessage();
+                        if (msg != null && (msg.toLowerCase().contains("not allowed")
+                                || msg.toLowerCase().contains("security"))) {
+                            msg = "Udělte prosím oprávnění ke sdílení obrazovky\n" +
+                                  "v systémovém dialogu a zkuste to znovu.";
+                        }
+                        javax.swing.JOptionPane.showMessageDialog(
+                            TrashTalkMainPanel.this, msg,
+                            "Sdílení obrazovky selhalo",
+                            javax.swing.JOptionPane.WARNING_MESSAGE);
+                        voicePanel.resetScreenShareButton();
+                    }
                 } else if (!streamOn && webRtcManager != null) {
                     webRtcManager.stopScreenShare();
                     if (!localCameraOn && videoGridPanel != null) {
@@ -428,7 +463,7 @@ public class TrashTalkMainPanel extends JFrame {
             @Override protected void done() {
                 Session.get().clear(apiClient);
                 dispose();
-                SwingUtilities.invokeLater(() -> new AuthPanel(apiClient).setVisible(true));
+                SwingUtilities.invokeLater(() -> new AuthPanel(apiClient.getBaseUrl(), true).setVisible(true));
             }
         }.execute();
     }
@@ -503,7 +538,9 @@ public class TrashTalkMainPanel extends JFrame {
                                 if (voicePanel    != null) { voicePanel.setAudioLevel(selfId, level); voicePanel.setSpeaking(selfId, speaking); }
                                 if (videoGridPanel != null) videoGridPanel.setSpeaking(selfId, speaking);
                             });
-                        });
+                        }, status -> SwingUtilities.invokeLater(() -> {
+                            if (voicePanel != null) voicePanel.setRtcStatus(status);
+                        }));
 
                         // Flush signals that arrived before webRtcManager was ready
                         Runnable r;
@@ -566,5 +603,11 @@ public class TrashTalkMainPanel extends JFrame {
 
     private void showError(String msg) {
         JOptionPane.showMessageDialog(this, msg, "Chyba", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private static boolean isWayland() {
+        String wd = System.getenv("WAYLAND_DISPLAY");
+        String st = System.getenv("XDG_SESSION_TYPE");
+        return (wd != null && !wd.isEmpty()) || "wayland".equalsIgnoreCase(st);
     }
 }
