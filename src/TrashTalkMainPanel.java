@@ -209,20 +209,15 @@ public class TrashTalkMainPanel extends JFrame {
             }
             @Override public void onScreenShareToggle(boolean streamOn) {
                 if (streamOn && webRtcManager != null) {
-                    java.awt.Rectangle bounds;
-                    if (isWayland()) {
-                        System.out.println("[ScreenShare] Wayland detected — skipping picker, using PipeWire portal");
-                        bounds = null;
-                    } else {
-                        System.out.println("[ScreenShare] non-Wayland — showing ScreenPickerDialog");
-                        ui.dialogs.ScreenPickerDialog picker =
-                                new ui.dialogs.ScreenPickerDialog(TrashTalkMainPanel.this);
-                        picker.setVisible(true);
-                        bounds = picker.getSelectedBounds();
-                        if (bounds == null) {
-                            voicePanel.resetScreenShareButton();
-                            return;
-                        }
+                    // Show picker on all platforms. On Linux, WebRtcManager captures the full
+                    // screen natively (spectacle/grim) and crops to the selected monitor bounds.
+                    ui.dialogs.ScreenPickerDialog picker =
+                            new ui.dialogs.ScreenPickerDialog(TrashTalkMainPanel.this);
+                    picker.setVisible(true);
+                    java.awt.Rectangle bounds = picker.getSelectedBounds();
+                    if (bounds == null) {
+                        voicePanel.resetScreenShareButton();
+                        return;
                     }
                     try {
                         webRtcManager.startScreenShare(bounds);
@@ -603,6 +598,10 @@ public class TrashTalkMainPanel extends JFrame {
 
     private void showError(String msg) {
         JOptionPane.showMessageDialog(this, msg, "Chyba", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private static boolean isLinux() {
+        return System.getProperty("os.name", "").toLowerCase().contains("linux");
     }
 
     // Cached at first call — xwaylandvideobridge won't start/stop mid-session.
